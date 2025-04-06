@@ -1,67 +1,66 @@
+# backend/models.py
+
 import enum
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as DBEnum
+# Make sure all necessary imports are here
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as DBEnum, Boolean # Added Boolean if used later
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func # To get current time from the database server
-from .database import Base
-# Define Enums based on PDF requirements [cite: 4]
-class UserRole(enum.Enum):
-    EMPLOYE = "Employé"
-    TECHNICIEN = "Technicien"
-    ADMIN = "Admin"
+from sqlalchemy.sql import func
+from .database import Base # Relative import
 
-class TicketStatus(enum.Enum):
-    OUVERT = "Ouvert"
-    EN_COURS = "En cours"
-    RESOLU = "Résolu"
-    FERME = "Fermé"
-
-class TicketPriority(enum.Enum):
-    FAIBLE = "Faible"
-    MOYENNE = "Moyenne"
-    ELEVEE = "Élevée"
-    CRITIQUE = "Critique"
+# --- Enums (UserRole, TicketStatus, TicketPriority - Keep As Is) ---
+class UserRole(enum.Enum): EMPLOYE = "Employé"; TECHNICIEN = "Technicien"; ADMIN = "Admin"
+class TicketStatus(enum.Enum): OUVERT = "Ouvert"; EN_COURS = "En cours"; RESOLU = "Résolu"; FERME = "Fermé"
+class TicketPriority(enum.Enum): FAIBLE = "Faible"; MOYENNE = "Moyenne"; ELEVEE = "Élevée"; CRITIQUE = "Critique"
 
 
+# --- User Model (Add comments relationship) ---
 class User(Base):
     __tablename__ = "users"
-
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False) # 'nom' in PDF [cite: 4]
+    name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
-    # Renamed 'password' to 'hashed_password' for clarity - we will implement hashing next!
-    hashed_password = Column(String, nullable=False) # 'mot_de_passe' in PDF [cite: 4]
-    # Added 'role' field using Enum [cite: 4]
+    hashed_password = Column(String, nullable=False)
     role = Column(DBEnum(UserRole), nullable=False)
-    # Added 'date_inscription' field with automatic timestamp [cite: 4]
     date_inscription = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationships: A user can create many tickets and be assigned many tickets
     tickets_created = relationship("Ticket", back_populates="creator", foreign_keys="[Ticket.creator_id]")
     tickets_assigned = relationship("Ticket", back_populates="technician", foreign_keys="[Ticket.technician_id]")
+    comments = relationship("Comment", back_populates="creator") # <-- ADD THIS RELATIONSHIP
 
 
+# --- Ticket Model (Add comments relationship) ---
 class Ticket(Base):
     __tablename__ = "tickets"
-
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True, nullable=False) # 'titre' in PDF [cite: 4]
+    title = Column(String, index=True, nullable=False)
     description = Column(String, nullable=False)
-    # Updated 'status' to use Enum, with default [cite: 4]
     status = Column(DBEnum(TicketStatus), default=TicketStatus.OUVERT, nullable=False)
-    # Updated 'priority' to use Enum, with default [cite: 4]
     priority = Column(DBEnum(TicketPriority), default=TicketPriority.MOYENNE, nullable=False)
-    # Added 'date_creation' with automatic timestamp [cite: 4]
     date_creation = Column(DateTime(timezone=True), server_default=func.now())
-    # Added 'date_mise_a_jour' with automatic update timestamp [cite: 4]
     date_mise_a_jour = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    # Renamed 'user_id' to 'creator_id' for clarity, linked to User.id [cite: 4]
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    # Added 'technician_id', linked to User.id, can be NULL [cite: 4]
     technician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    # Relationships: Link back to the User model
-    # Link to the User who created the ticket
     creator = relationship("User", back_populates="tickets_created", foreign_keys=[creator_id])
-    # Link to the User (technician) assigned to the ticket
     technician = relationship("User", back_populates="tickets_assigned", foreign_keys=[technician_id])
+    comments = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan") # <-- ADD THIS RELATIONSHIP (added cascade)
+
+
+# --- <<< ADD COMMENT MODEL BELOW >>> ---
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(String, nullable=False)
+    date_creation = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Foreign Keys
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Relationships
+    ticket = relationship("Ticket", back_populates="comments")
+    creator = relationship("User", back_populates="comments")
+
+# --- <<< END OF ADDED MODEL >>> ---

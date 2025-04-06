@@ -1,10 +1,14 @@
 # backend/database.py
-
+import os
 from sqlalchemy import create_engine, NullPool # <-- IMPORT NullPool
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
-DATABASE_URL = "postgresql://postgres:password@localhost:5432/ticketing_system"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", # Name of the environment variable
+    "postgresql://postgres:password@localhost:5432/ticketing_system" # Default value
+)
+print(f"--- Using Database URL: {DATABASE_URL} ---") # Add print to see which URL is used
 
 # ADD poolclass=NullPool to disable pooling for testing
 engine = create_engine(DATABASE_URL, echo=True, poolclass=NullPool) # <-- ADDED poolclass

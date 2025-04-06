@@ -1,0 +1,17 @@
+version: '3.8' # Specifies the Docker Compose file format version
+
+services:
+  # Define the backend service
+  backend:
+    build: . # Tells Compose to build an image using the Dockerfile in the current directory (.)
+    image: ticketing-system-backend:latest # Specifies the image name to use/tag after building
+    container_name: ticketing-backend-compose # Assigns a specific name to the container created
+    ports:
+      - "8000:8000" # Maps port 8000 on the host to port 8000 in the container
+    environment:
+      # Set the database URL environment variable for the container
+      # Still connecting to the host database for now using host.docker.internal
+      DATABASE_URL: postgresql://postgres:password@host.docker.internal:5432/ticketing_system
+    # We might add volumes later for development reloading without rebuilding the image
+    # volumes:
+    #   - ./backend:/app/backend
