@@ -2,10 +2,10 @@
 
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional # Keep Optional if needed elsewhere, though not strictly necessary for these specific models yet.
+from typing import Optional
 
 # Import the Enum directly from models to reuse it
-from .models import UserRole
+from .models import UserRole # Make sure this is a relative import
 
 # Schema for creating a user (request body)
 class UserCreate(BaseModel):
@@ -13,10 +13,6 @@ class UserCreate(BaseModel):
     email: EmailStr # Pydantic type for email validation
     password: str # Plain password received from user
     role: UserRole # Use the Enum defined in models.py
-
-    # Example for Pydantic configuration if needed later
-    # class Config:
-    #     orm_mode = True # Allows mapping directly to ORM models if needed elsewhere
 
 # Schema for reading user data (response body)
 # Excludes sensitive data like password
@@ -27,7 +23,19 @@ class UserRead(BaseModel):
     role: UserRole
     date_inscription: datetime
 
-    # This tells Pydantic to read data even if it's not a dict,
-    # but an ORM model (or any other arbitrary object with attributes).
     class Config:
         orm_mode = True
+
+
+# <<< --- ADD THESE SCHEMAS BELOW --- >>>
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    # Use email as the identifier within the token, or user id
+    email: Optional[str] = None
+    # You could also include user_id: Optional[int] = None
+
+# <<< --- END OF ADDED SCHEMAS --- >>>
