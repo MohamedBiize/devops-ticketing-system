@@ -2,40 +2,65 @@
 
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List # Ensure List is imported if used elsewhere
 
-# Import the Enum directly from models to reuse it
-from .models import UserRole # Make sure this is a relative import
+# Import Enums directly from models
+from .models import UserRole, TicketStatus, TicketPriority
 
-# Schema for creating a user (request body)
+# --- User Schemas (Existing) ---
+# ... (UserCreate, UserRead) ...
 class UserCreate(BaseModel):
     name: str
-    email: EmailStr # Pydantic type for email validation
-    password: str # Plain password received from user
-    role: UserRole # Use the Enum defined in models.py
+    email: EmailStr
+    password: str
+    role: UserRole
 
-# Schema for reading user data (response body)
-# Excludes sensitive data like password
 class UserRead(BaseModel):
     id: int
     name: str
     email: EmailStr
     role: UserRole
     date_inscription: datetime
+    class Config: from_attributes = True # Updated from orm_mode
 
-    class Config:
-        orm_mode = True
-
-
-# <<< --- ADD THESE SCHEMAS BELOW --- >>>
-
+# --- Token Schemas (Existing) ---
+# ... (Token, TokenData) ...
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    # Use email as the identifier within the token, or user id
     email: Optional[str] = None
-    # You could also include user_id: Optional[int] = None
 
-# <<< --- END OF ADDED SCHEMAS --- >>>
+
+# --- Ticket Schemas (Existing & New) ---
+class TicketBase(BaseModel):
+    title: str
+    description: str
+    priority: Optional[TicketPriority] = None
+
+class TicketCreate(TicketBase):
+    pass
+
+class TicketRead(TicketBase):
+    id: int
+    status: TicketStatus
+    priority: TicketPriority
+    date_creation: datetime
+    date_mise_a_jour: datetime
+    creator_id: int
+    technician_id: Optional[int] = None
+    class Config: from_attributes = True # Updated from orm_mode
+
+# --- <<< ADD TICKET UPDATE SCHEMA BELOW >>> ---
+
+class TicketUpdate(BaseModel):
+    # All fields are optional for updates
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[TicketStatus] = None
+    priority: Optional[TicketPriority] = None
+    # We might handle technician_id assignment separately or with authorization
+    # technician_id: Optional[int] = None
+
+# --- <<< END OF ADDED SCHEMA >>> ---

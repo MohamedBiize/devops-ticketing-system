@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm # Still needed for login form
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from typing import List
 
 # Import engine, Base from database.py and get_db dependency
 from .database import engine, Base, get_db
@@ -85,3 +86,175 @@ async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 # --- Ticket endpoints will go here later ---
+
+@app.post("/tickets", response_model=schemas.TicketRead, status_code=status.HTTP_201_CREATED, tags=["Tickets"])
+def create_ticket(
+    ticket: schemas.TicketCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Require authentication
+):
+    """
+    Creates a new support ticket.
+
+    Requires authentication. The logged-in user will be set as the creator.
+    - Takes ticket details (title, description, optional priority) in request body.
+    - Returns the created ticket's data.
+    """
+    # Create a new Ticket database object
+    new_ticket = models.Ticket(
+        title=ticket.title,
+        description=ticket.description,
+        creator_id=current_user.id # Set creator to the logged-in user's ID
+        # Status defaults to 'OUVERT' in the model
+        # Priority defaults to 'MOYENNE' in the model unless provided
+    )
+    # If priority was provided in the request, set it
+    if ticket.priority is not None:
+        new_ticket.priority = ticket.priority
+
+    # Add to session, commit, and refresh
+    db.add(new_ticket)
+    db.commit()
+    db.refresh(new_ticket) # Get DB-generated values like id, dates, default status
+
+    return new_ticket # FastAPI uses response_model (TicketRead)
+
+# --- <<< END OF TICKET CREATION ENDPOINT >>> ---
+
+# --- Other ticket endpoints (GET, PUT, DELETE) will go here later ---
+
+@app.get("/tickets", response_model=List[schemas.TicketRead], tags=["Tickets"])
+def read_tickets(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Require authentication
+    # Add skip: int = 0, limit: int = 100 later for pagination
+):
+    """
+    Retrieves a list of all tickets.
+
+    Requires authentication.
+    (Currently returns all tickets, filtering based on role to be added later).
+    """
+    tickets = db.query(models.Ticket).all() # Gets all tickets for now
+    return tickets
+
+# --- <<< END OF GET TICKETS ENDPOINT >>> ---
+
+# --- Other ticket endpoints (GET by ID, PUT, DELETE) will go here later ---
+
+# --- <<< ADD GET TICKET BY ID ENDPOINT BELOW >>> ---
+
+@app.get("/tickets/{ticket_id}", response_model=schemas.TicketRead, tags=["Tickets"])
+def read_ticket(
+    ticket_id: int, # Path parameter to identify the ticket
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Require authentication
+):
+    """
+    Retrieves a specific ticket by its ID.
+
+    Requires authentication.
+    (Currently allows any authenticated user to retrieve any ticket,
+     authorization based on role/ownership to be added later).
+    Returns 404 if the ticket is not found.
+    """
+    ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
+
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # Add authorization checks here later (e.g., if current_user.role == ... or ticket.creator_id == current_user.id)
+
+    return ticket
+
+# --- <<< END OF GET TICKET BY ID ENDPOINT >>> ---
+
+# --- Other ticket endpoints (PUT, DELETE) will go here later ---
+
+# --- <<< ADD UPDATE TICKET ENDPOINT BELOW >>> ---
+
+@app.put("/tickets/{ticket_id}", response_model=schemas.TicketRead, tags=["Tickets"])
+def update_ticket(
+    ticket_id: int,
+    ticket_update: schemas.TicketUpdate, # Request body with optional fields
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Require authentication
+):
+    """
+    Updates an existing ticket by its ID.
+
+    Requires authentication. Allows updating title, description, status, priority.
+    (Authorization checks based on role/ownership to be added later).
+    Returns 404 if the ticket is not found.
+    """
+    # Fetch the existing ticket
+    db_ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
+
+    if db_ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # --- Authorization check placeholder ---
+    # Add checks here later, e.g.:
+    # if current_user.role == models.UserRole.EMPLOYE and db_ticket.creator_id != current_user.id:
+    #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this ticket")
+    # elif current_user.role == models.UserRole.TECHNICIEN and db_ticket.technician_id != current_user.id and db_ticket.creator_id != current_user.id:
+         # Allow technicians maybe more flexibility? Needs definition.
+    #     pass # Or raise forbidden if they can only update assigned/own
+    # --------------------------------------
+
+    # Get the update data dictionary, excluding fields that were not set
+    update_data = ticket_update.dict(exclude_unset=True)
+
+    # Update the ticket object attributes
+    for key, value in update_data.items():
+        setattr(db_ticket, key, value)
+
+    # Commit the changes (SQLAlchemy tracks changes to db_ticket)
+    db.commit()
+    # Refresh the object to get any updated fields from DB (like date_mise_a_jour)
+    db.refresh(db_ticket)
+
+    return db_ticket
+
+# --- <<< END OF UPDATE TICKET ENDPOINT >>> ---
+
+# --- DELETE endpoint will go here later ---
+
+# --- <<< ADD DELETE TICKET ENDPOINT BELOW >>> ---
+
+@app.delete("/tickets/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Tickets"])
+def delete_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Require authentication
+):
+    """
+    Deletes a ticket by its ID.
+
+    Requires authentication and ADMIN role.
+    Returns 204 No Content on success.
+    Returns 404 if the ticket is not found.
+    Returns 403 if the user is not an Admin.
+    """
+    # --- Authorization Check ---
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete tickets"
+        )
+    # --------------------------
+
+    # Fetch the ticket to delete
+    db_ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
+
+    if db_ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # Delete the ticket
+    db.delete(db_ticket)
+    db.commit()
+
+    # Return None for 204 No Content response
+    return None
+
+# --- <<< END OF DELETE TICKET ENDPOINT >>> ---
