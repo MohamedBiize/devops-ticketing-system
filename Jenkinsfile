@@ -14,8 +14,6 @@ pipeline {
             steps {
                 echo 'Checking out code from GitHub...'
                 // Jenkins checks out the code automatically when using 'Pipeline script from SCM'
-                // but you can add specific git commands if needed:
-                // git url: 'YOUR_GITHUB_REPO_URL', branch: 'main' // Replace with your repo URL if not using SCM config
                 checkout scm // Standard step to checkout configured SCM
             }
         }
@@ -23,40 +21,25 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image ${IMAGE_NAME}:${IMAGE_TAG}..."
-                // Ensure Docker is available in the environment Jenkins runs this in
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                // Use bat for Windows compatibility
+                bat "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
         // Optional Stage: Add Tests Here later
-        // stage('Test') {
-        //     steps {
-        //         echo 'Running tests...'
-        //         // Example: sh 'docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} pytest'
-        //     }
-        // }
+        // stage('Test') { ... }
 
-        // Optional Stage: Push to Docker Registry (e.g., Docker Hub)
-        // stage('Push Docker Image') {
-        //     steps {
-        //         echo "Pushing Docker image ${IMAGE_NAME}:${IMAGE_TAG}..."
-        //         // Assumes Docker credentials are configured in Jenkins
-        //         // withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-        //         //     sh "docker login -u ${env.DOCKER_USER} -p ${env.DOCKER_PASS}"
-        //         //     sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} your-dockerhub-username/${IMAGE_NAME}:${IMAGE_TAG}"
-        //         //     sh "docker push your-dockerhub-username/${IMAGE_NAME}:${IMAGE_TAG}"
-        //         // }
-        //     }
-        // }
+        // Optional Stage: Push to Docker Registry
+        // stage('Push Docker Image') { ... } // If you add this later, use 'bat' inside too
 
         stage('Run Application via Docker Compose') {
             steps {
                 echo 'Stopping any previous containers...'
-                // Use docker-compose (ensure it's installed on the agent)
-                // Use -d to run in detached mode so pipeline doesn't hang
-                sh 'docker-compose down --volumes' // Stop and remove containers/volumes
+                // Use bat for Windows compatibility
+                bat 'docker-compose down --volumes'
                 echo 'Starting application using docker-compose...'
-                sh 'docker-compose up --build -d' // Build image if needed, start detached
+                // Use bat for Windows compatibility
+                bat 'docker-compose up --build -d'
             }
         }
     }
@@ -64,8 +47,8 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished.'
-            // Optional: Clean up workspace, containers etc.
-            // sh 'docker-compose down --volumes' // Uncomment if you want to stop after run
+            // Optional: If adding cleanup commands, use 'bat' here too
+            // bat 'docker-compose down --volumes'
         }
         success {
             echo 'Pipeline succeeded!'
