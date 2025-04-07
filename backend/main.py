@@ -1,6 +1,7 @@
 # backend/main.py
 
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware 
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import or_,func # <-- IMPORT or_ FOR COMBINING FILTERS
@@ -23,14 +24,29 @@ from . import schemas
 
 app = FastAPI(title="Ticketing System API")
 
+origins = [
+    "http://localhost:5173", # Default Vite React port
+    "http://localhost:3000", # Default Create React App port
+    "http://127.0.0.1:5173",
+    # Add any other ports/origins if needed
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # Allows specified origins
+    allow_credentials=True, # Allows cookies (not used here yet, but often needed)
+    allow_methods=["*"], # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"], # Allows all headers
+)
+
 # Create database tables (Consider Alembic for production)
 # print("Attempting to create database tables...") # Optional: Keep or remove startup prints
+print("Attempting to create database tables...")
 try:
     Base.metadata.create_all(bind=engine)
-    # print("Tables checked/created successfully.") # Optional: Keep or remove startup prints
+    print("Tables checked/created successfully.")
 except Exception as e:
-    print(f"Error during startup table check: {e}") # Keep error reporting
-
+    print(f"Error during startup table check: {e}")
 
 # --- Endpoints ---
 
