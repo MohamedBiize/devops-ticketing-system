@@ -108,4 +108,28 @@ export async function getTicketById(ticketId) {
     // Returns the newly created comment data
     return data;
   }
-    
+
+  export async function deleteTicketById(ticketId) {
+    const response = await fetch(`${API_URL}/tickets/${ticketId}`, {
+      method: 'DELETE',
+      headers: {
+        ...getAuthHeaders(), // Include authentication token
+      },
+    });
+  
+    // DELETE requests often return 204 No Content on success, which has no body
+    // We check if the status code indicates success (200-299)
+    if (!response.ok) {
+      // Try to parse error detail if available (like for 403/404)
+      let errorDetail = `HTTP error! status: ${response.status}`;
+      try {
+        const data = await response.json();
+        errorDetail = data.detail || errorDetail;
+      } catch (e) {
+        // Ignore if response has no body or isn't JSON
+      }
+      throw new Error(errorDetail);
+    }
+    // No data to return on successful delete
+    return true;
+  }

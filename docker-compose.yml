@@ -1,17 +1,41 @@
 version: '3.8' # Specifies the Docker Compose file format version
 
 services:
-  # Define the backend service
+  # Define the backend service (FastAPI application)
   backend:
     build: . # Tells Compose to build an image using the Dockerfile in the current directory (.)
     image: ticketing-system-backend:latest # Specifies the image name to use/tag after building
     container_name: ticketing-backend-compose # Assigns a specific name to the container created
     ports:
-      - "8000:8000" # Maps port 8000 on the host to port 8000 in the container
+      - "8000:8000" # Maps host port 8000 to container port 8000
     environment:
-      # Set the database URL environment variable for the container
-      # Still connecting to the host database for now using host.docker.internal
-      DATABASE_URL: postgresql://postgres:password@host.docker.internal:5432/ticketing_system
-    # We might add volumes later for development reloading without rebuilding the image
-    # volumes:
-    #   - ./backend:/app/backend
+      # Updated URL points to the 'db' service name defined below
+      # Uses the same credentials defined for the db service
+      DATABASE_URL: postgresql://postgres:password@db:5432/ticketing_system
+    depends_on:
+      db: # Tells Compose to start the 'db' service and wait for it to be healthy
+        condition: service_healthy # Wait for the healthcheck to pass
+
+  # Define the database service (PostgreSQL)
+  db:
+    image: postgres:15-alpine # Use an official PostgreSQL image (Alpine is smaller)
+    container_name: ticketing-db-compose
+    environment:
+      POSTGRES_USER: postgres # Database username
+      POSTGRES_PASSWORD: password # Database password
+      POSTGRES_DB: ticketing_system # Database name
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data using a named volume
+    ports:
+      # Optional: Expose port 5433 on host mapped to 5432 in container
+      # Allows connecting to the DB container directly using pgAdmin via localhost:5433
+      - "5433:5432"
+    healthcheck: # Optional but recommended: Checks if DB is ready
+        test: ["CMD-SHELL", "pg_isready -U postgres -d ticketing_system"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+# Define the named volume for persistent database storage
+volumes:
+  postgres_data:
