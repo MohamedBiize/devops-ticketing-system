@@ -33,15 +33,20 @@ pipeline {
         // stage('Push Docker Image') { ... } // If you add this later, use 'bat' inside too
 
         stage('Run Application via Docker Compose') {
-            steps {
-                echo 'Stopping any previous containers...'
-                // Use bat for Windows compatibility
-                bat 'docker-compose down --volumes'
-                echo 'Starting application using docker-compose...'
-                // Use bat for Windows compatibility
-                bat 'docker-compose up --build --force-recreate -d' // Add --force-recreate
-            }
+        steps {
+            echo 'Stopping any previous containers (docker-compose down)...'
+            // Add || true to ignore errors if nothing exists to take down
+            bat 'docker-compose down --volumes || true'
+
+            echo 'Forcibly removing container just in case (docker rm)...'
+            // Add explicit rm -f and ignore errors if container doesn't exist
+            bat 'docker rm -f ticketing-backend-compose || true'
+
+            echo 'Starting application using docker-compose...'
+            // Keep the --force-recreate flag for good measure
+            bat 'docker-compose up --build --force-recreate -d'
         }
+    }
     }
 
     post {
