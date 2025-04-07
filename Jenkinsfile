@@ -39,7 +39,7 @@ pipeline {
                 bat 'docker-compose down --volumes'
                 echo 'Starting application using docker-compose...'
                 // Use bat for Windows compatibility
-                bat 'docker-compose up --build -d'
+                bat 'docker-compose up --build --force-recreate -d' // Add --force-recreate
             }
         }
     }
